@@ -1,0 +1,716 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SoundDrop — Music Downloader</title>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet" />
+  <style>
+    /* ── Reset & Base ── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #080b10;
+      --surface:   #0f1520;
+      --border:    rgba(255,255,255,0.07);
+      --accent:    #e8ff47;        /* electric lime */
+      --accent2:   #3be8b0;        /* mint */
+      --danger:    #ff4d6d;
+      --text:      #e8eaf0;
+      --muted:     #545c70;
+      --font-head: 'Syne', sans-serif;
+      --font-mono: 'DM Mono', monospace;
+      --radius:    14px;
+      --transition: 0.25s cubic-bezier(.4,0,.2,1);
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font-mono);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ── Animated background mesh ── */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 60% 50% at 10% 20%, rgba(232,255,71,0.06) 0%, transparent 70%),
+        radial-gradient(ellipse 50% 40% at 90% 80%, rgba(59,232,176,0.05) 0%, transparent 70%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ── Layout ── */
+    .wrapper {
+      position: relative;
+      z-index: 1;
+      max-width: 680px;
+      margin: 0 auto;
+      padding: 48px 20px 80px;
+    }
+
+    /* ── Header ── */
+    header {
+      text-align: center;
+      margin-bottom: 48px;
+      animation: fadeDown 0.6s ease both;
+    }
+
+    .logo-mark {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+
+    .logo-icon {
+      width: 44px; height: 44px;
+      background: var(--accent);
+      border-radius: 12px;
+      display: grid; place-items: center;
+      animation: pulse-logo 3s ease-in-out infinite;
+    }
+    .logo-icon svg { width: 22px; height: 22px; fill: #080b10; }
+
+    h1 {
+      font-family: var(--font-head);
+      font-size: clamp(28px, 5vw, 40px);
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      color: var(--text);
+    }
+    h1 span { color: var(--accent); }
+
+    .tagline {
+      color: var(--muted);
+      font-size: 13px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-top: 6px;
+    }
+
+    /* ── Waveform Decoration ── */
+    .waveform {
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      gap: 3px;
+      height: 28px;
+      margin: 18px auto 0;
+    }
+    .waveform span {
+      display: block;
+      width: 3px;
+      background: var(--accent);
+      border-radius: 2px;
+      opacity: 0.4;
+      animation: wave 1.4s ease-in-out infinite;
+    }
+    .waveform span:nth-child(1)  { height: 40%; animation-delay: 0s; }
+    .waveform span:nth-child(2)  { height: 70%; animation-delay: .1s; }
+    .waveform span:nth-child(3)  { height: 55%; animation-delay: .2s; }
+    .waveform span:nth-child(4)  { height: 90%; animation-delay: .3s; }
+    .waveform span:nth-child(5)  { height: 65%; animation-delay: .4s; }
+    .waveform span:nth-child(6)  { height: 100%;animation-delay: .5s; }
+    .waveform span:nth-child(7)  { height: 75%; animation-delay: .4s; }
+    .waveform span:nth-child(8)  { height: 85%; animation-delay: .3s; }
+    .waveform span:nth-child(9)  { height: 50%; animation-delay: .2s; }
+    .waveform span:nth-child(10) { height: 35%; animation-delay: .1s; }
+    .waveform span:nth-child(11) { height: 60%; animation-delay: 0s;  }
+
+    /* ── Card ── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 28px;
+      margin-bottom: 16px;
+      animation: fadeUp 0.5s ease both;
+    }
+    .card:nth-child(2) { animation-delay: 0.1s; }
+    .card:nth-child(3) { animation-delay: 0.2s; }
+
+    .card-title {
+      font-family: var(--font-head);
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 18px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .card-title::before {
+      content: '';
+      display: inline-block;
+      width: 6px; height: 6px;
+      background: var(--accent);
+      border-radius: 50%;
+    }
+
+    /* ── Tab System ── */
+    .tabs {
+      display: flex;
+      gap: 4px;
+      background: rgba(255,255,255,0.04);
+      border-radius: 10px;
+      padding: 4px;
+      margin-bottom: 22px;
+    }
+    .tab-btn {
+      flex: 1;
+      background: none;
+      border: none;
+      color: var(--muted);
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-weight: 500;
+      padding: 8px 12px;
+      border-radius: 7px;
+      cursor: pointer;
+      transition: var(--transition);
+    }
+    .tab-btn.active {
+      background: var(--accent);
+      color: #080b10;
+      font-weight: 600;
+    }
+    .tab-btn:not(.active):hover { color: var(--text); background: rgba(255,255,255,0.06); }
+
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    /* ── Input Group ── */
+    .input-group {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+
+    input[type="text"], textarea {
+      flex: 1;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      color: var(--text);
+      font-family: var(--font-mono);
+      font-size: 14px;
+      padding: 13px 16px;
+      outline: none;
+      transition: border-color var(--transition), box-shadow var(--transition);
+    }
+    input[type="text"]:focus, textarea:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(232,255,71,0.12);
+    }
+    input::placeholder, textarea::placeholder { color: var(--muted); }
+
+    textarea {
+      width: 100%;
+      resize: vertical;
+      min-height: 110px;
+      line-height: 1.7;
+    }
+
+    /* ── Buttons ── */
+    .btn {
+      border: none;
+      border-radius: 10px;
+      font-family: var(--font-mono);
+      font-size: 13px;
+      font-weight: 500;
+      padding: 12px 22px;
+      cursor: pointer;
+      transition: var(--transition);
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      white-space: nowrap;
+    }
+    .btn-primary {
+      background: var(--accent);
+      color: #080b10;
+    }
+    .btn-primary:hover {
+      background: #d4eb30;
+      transform: translateY(-1px);
+      box-shadow: 0 6px 20px rgba(232,255,71,0.25);
+    }
+    .btn-primary:active { transform: translateY(0); }
+    .btn-primary:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+    .btn-ghost {
+      background: rgba(255,255,255,0.05);
+      color: var(--muted);
+      border: 1px solid var(--border);
+    }
+    .btn-ghost:hover { background: rgba(255,255,255,0.09); color: var(--text); }
+
+    /* ── Status / Toast ── */
+    .status-bar {
+      min-height: 40px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 0 4px;
+      font-size: 13px;
+      margin-top: 14px;
+    }
+
+    .status-idle    { color: var(--muted); }
+    .status-loading { color: var(--accent2); }
+    .status-success { color: var(--accent2); }
+    .status-error   { color: var(--danger); }
+
+    .spinner {
+      width: 16px; height: 16px;
+      border: 2px solid rgba(59,232,176,0.3);
+      border-top-color: var(--accent2);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      flex-shrink: 0;
+    }
+
+    /* ── Download Result ── */
+    .result-card {
+      background: rgba(59,232,176,0.06);
+      border: 1px solid rgba(59,232,176,0.2);
+      border-radius: 10px;
+      padding: 14px 18px;
+      margin-top: 14px;
+      display: none;
+      animation: fadeUp 0.3s ease both;
+    }
+    .result-card.visible { display: block; }
+
+    .result-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 10px;
+    }
+    .result-name {
+      font-family: var(--font-head);
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text);
+      max-width: 320px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .result-meta {
+      display: flex;
+      gap: 12px;
+      font-size: 11px;
+      color: var(--muted);
+    }
+    .result-meta span { display: flex; align-items: center; gap: 4px; }
+
+    .btn-download {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      background: var(--accent);
+      color: #080b10;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-weight: 600;
+      padding: 8px 16px;
+      border-radius: 8px;
+      text-decoration: none;
+      transition: var(--transition);
+    }
+    .btn-download:hover { background: #d4eb30; transform: translateY(-1px); }
+    .btn-download svg { width: 14px; height: 14px; }
+
+    /* ── Queue Results ── */
+    .queue-results { margin-top: 16px; display: none; }
+    .queue-results.visible { display: block; }
+    .queue-summary {
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 10px;
+      padding: 0 2px;
+    }
+    .queue-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 11px 14px;
+      border-radius: 8px;
+      margin-bottom: 6px;
+      font-size: 13px;
+      gap: 10px;
+    }
+    .queue-item.ok  { background: rgba(59,232,176,0.07); border: 1px solid rgba(59,232,176,0.15); }
+    .queue-item.err { background: rgba(255,77,109,0.07);  border: 1px solid rgba(255,77,109,0.15); }
+    .queue-item-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .badge {
+      font-size: 10px;
+      font-weight: 600;
+      padding: 3px 8px;
+      border-radius: 5px;
+      letter-spacing: 0.06em;
+      flex-shrink: 0;
+    }
+    .badge-ok  { background: rgba(59,232,176,0.2);  color: var(--accent2); }
+    .badge-err { background: rgba(255,77,109,0.2);  color: var(--danger); }
+
+    /* ── History ── */
+    .history-list { display: flex; flex-direction: column; gap: 8px; }
+
+    .history-empty {
+      text-align: center;
+      color: var(--muted);
+      font-size: 13px;
+      padding: 30px 0;
+    }
+
+    .history-item {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 16px;
+      transition: border-color var(--transition);
+    }
+    .history-item:hover { border-color: rgba(255,255,255,0.14); }
+
+    .history-icon {
+      width: 36px; height: 36px;
+      background: rgba(232,255,71,0.1);
+      border-radius: 8px;
+      display: grid; place-items: center;
+      flex-shrink: 0;
+    }
+    .history-icon svg { width: 18px; height: 18px; fill: var(--accent); }
+
+    .history-info { flex: 1; min-width: 0; }
+    .history-name {
+      font-family: var(--font-head);
+      font-size: 13px;
+      font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .history-sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+    .history-actions { display: flex; gap: 6px; flex-shrink: 0; }
+
+    /* ── Loading Overlay for Queue ── */
+    .progress-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 14px;
+      background: rgba(232,255,71,0.05);
+      border: 1px solid rgba(232,255,71,0.12);
+      border-radius: 10px;
+      font-size: 13px;
+      color: var(--accent);
+      margin-top: 14px;
+      display: none;
+    }
+    .progress-row.visible { display: flex; }
+
+    /* ── Animations ── */
+    @keyframes wave {
+      0%, 100% { transform: scaleY(0.5); opacity: 0.3; }
+      50%       { transform: scaleY(1.2); opacity: 0.9; }
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @keyframes fadeDown {
+      from { opacity: 0; transform: translateY(-16px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(12px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes pulse-logo {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(232,255,71,0.4); }
+      50%       { box-shadow: 0 0 0 10px rgba(232,255,71,0); }
+    }
+
+    /* ── Scrollbar ── */
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+  </style>
+</head>
+<body>
+<div class="wrapper">
+
+  <!-- Header -->
+  <header>
+    <div class="logo-mark">
+      <div class="logo-icon">
+        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z"/>
+        </svg>
+      </div>
+      <h1>Sound<span>Drop</span></h1>
+    </div>
+    <p class="tagline">YouTube → MP3 in seconds</p>
+    <div class="waveform">
+      <span></span><span></span><span></span><span></span><span></span>
+      <span></span><span></span><span></span><span></span><span></span><span></span>
+    </div>
+  </header>
+
+  <!-- Download Card -->
+  <div class="card">
+    <p class="card-title">Download</p>
+
+    <!-- Tabs -->
+    <div class="tabs">
+      <button class="tab-btn active" onclick="switchTab('single', this)">Single Song</button>
+      <button class="tab-btn"        onclick="switchTab('queue',  this)">Queue Mode</button>
+    </div>
+
+    <!-- Single Song Tab -->
+    <div id="tab-single" class="tab-panel active">
+      <div class="input-group">
+        <input type="text" id="songName" placeholder="Artist — Song title or keywords…" autocomplete="off" />
+        <button class="btn btn-primary" id="singleBtn" onclick="downloadSong()">
+          <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
+          Grab
+        </button>
+      </div>
+
+      <div class="status-bar" id="singleStatus">
+        <span class="status-idle">Ready to download</span>
+      </div>
+
+      <div class="result-card" id="singleResult">
+        <div class="result-header">
+          <span class="result-name" id="resultFileName">—</span>
+          <a href="#" id="resultDownloadLink" class="btn-download" download>
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
+            Download
+          </a>
+        </div>
+        <div class="result-meta">
+          <span id="resultSize">—</span>
+          <span id="resultTime">—</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Queue Tab -->
+    <div id="tab-queue" class="tab-panel">
+      <textarea id="queueInput" placeholder="One song per line:&#10;Kendrick Lamar — HUMBLE&#10;The Weeknd Blinding Lights&#10;Daft Punk Get Lucky"></textarea>
+      <div style="display:flex;justify-content:flex-end;margin-top:10px;">
+        <button class="btn btn-primary" id="queueBtn" onclick="downloadQueue()">
+          <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
+          Download All
+        </button>
+      </div>
+
+      <div class="progress-row" id="queueProgress">
+        <div class="spinner"></div>
+        <span id="queueProgressText">Downloading queue…</span>
+      </div>
+
+      <div class="queue-results" id="queueResults">
+        <p class="queue-summary" id="queueSummary"></p>
+        <div id="queueList"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- History Card -->
+  <div class="card">
+    <p class="card-title" style="justify-content:space-between;">
+      <span style="display:flex;align-items:center;gap:8px;">
+        <span style="width:6px;height:6px;background:var(--accent);border-radius:50%;display:inline-block;"></span>
+        Download History
+      </span>
+      <button class="btn btn-ghost" style="padding:5px 12px;font-size:11px;" onclick="clearHistory()">Clear</button>
+    </p>
+    <div id="historyContainer">
+      <p class="history-empty">No downloads yet — grab a song above ↑</p>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  /* ── Tab Switching ── */
+  function switchTab(name, el) {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    el.classList.add('active');
+    document.getElementById('tab-' + name).classList.add('active');
+  }
+
+  /* ── Helpers ── */
+  function setStatus(id, type, html) {
+    const el = document.getElementById(id);
+    el.innerHTML = `<span class="status-${type}">${type === 'loading' ? '<span class="spinner"></span>' : ''}${html}</span>`;
+  }
+
+  /* ── Single Song Download ── */
+  async function downloadSong() {
+    const songName = document.getElementById('songName').value.trim();
+    const btn = document.getElementById('singleBtn');
+    const resultCard = document.getElementById('singleResult');
+
+    if (!songName) { setStatus('singleStatus', 'error', 'Please enter a song name'); return; }
+
+    btn.disabled = true;
+    resultCard.classList.remove('visible');
+    setStatus('singleStatus', 'loading', ' Searching & downloading…');
+
+    try {
+      const res  = await fetch('/download', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: `song_name=${encodeURIComponent(songName)}`
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        setStatus('singleStatus', 'success', '✓ Download complete');
+        document.getElementById('resultFileName').textContent = data.file_name;
+        document.getElementById('resultSize').textContent     = '💾 ' + (data.file_size || '—');
+        document.getElementById('resultTime').textContent     = '🕐 ' + (data.timestamp || '—');
+        document.getElementById('resultDownloadLink').href    = `/download_file/${encodeURIComponent(data.file_path)}`;
+        document.getElementById('resultDownloadLink').download = data.file_name;
+        resultCard.classList.add('visible');
+        refreshHistory();
+      } else {
+        setStatus('singleStatus', 'error', '✗ ' + data.message);
+      }
+    } catch (e) {
+      setStatus('singleStatus', 'error', '✗ Network error — is the server running?');
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  /* ── Queue Download ── */
+  async function downloadQueue() {
+    const raw   = document.getElementById('queueInput').value.trim();
+    const btn   = document.getElementById('queueBtn');
+    const prog  = document.getElementById('queueProgress');
+    const res   = document.getElementById('queueResults');
+
+    if (!raw) return;
+
+    btn.disabled = true;
+    prog.classList.add('visible');
+    res.classList.remove('visible');
+    document.getElementById('queueProgressText').textContent = 'Downloading queue… this may take a while';
+
+    try {
+      const r    = await fetch('/queue', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: `songs=${encodeURIComponent(raw)}`
+      });
+      const data = await r.json();
+
+      prog.classList.remove('visible');
+
+      if (data.success) {
+        document.getElementById('queueSummary').textContent = data.summary;
+        const list = document.getElementById('queueList');
+        list.innerHTML = '';
+
+        data.results.forEach(item => {
+          const ok = item.success;
+          const div = document.createElement('div');
+          div.className = `queue-item ${ok ? 'ok' : 'err'}`;
+          div.innerHTML = `
+            <span class="queue-item-name">${item.song_name}</span>
+            ${ok
+              ? `<a href="/download_file/${encodeURIComponent(item.file_path)}" class="btn-download" download style="padding:5px 11px;font-size:11px;">
+                   <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
+                   ${item.file_size}
+                 </a>`
+              : `<span class="badge badge-err">FAILED</span>`
+            }`;
+          list.appendChild(div);
+        });
+
+        res.classList.add('visible');
+        refreshHistory();
+      }
+    } catch (e) {
+      prog.classList.remove('visible');
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  /* ── History ── */
+  async function refreshHistory() {
+    try {
+      const r    = await fetch('/history');
+      const data = await r.json();
+      const container = document.getElementById('historyContainer');
+
+      if (!data.history || data.history.length === 0) {
+        container.innerHTML = '<p class="history-empty">No downloads yet — grab a song above ↑</p>';
+        return;
+      }
+
+      container.innerHTML = '<div class="history-list">' +
+        data.history.map(item => `
+          <div class="history-item">
+            <div class="history-icon">
+              <svg viewBox="0 0 24 24"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>
+            </div>
+            <div class="history-info">
+              <div class="history-name">${escHtml(item.file_name)}</div>
+              <div class="history-sub">${escHtml(item.file_size)} · ${escHtml(item.timestamp)}</div>
+            </div>
+            <div class="history-actions">
+              <a href="/download_file/${encodeURIComponent(item.file_path)}" class="btn btn-ghost" style="padding:6px 12px;font-size:11px;" download>
+                ↓ Save
+              </a>
+            </div>
+          </div>`).join('')
+        + '</div>';
+    } catch (_) {}
+  }
+
+  async function clearHistory() {
+    await fetch('/history/clear', { method: 'POST' });
+    document.getElementById('historyContainer').innerHTML =
+      '<p class="history-empty">No downloads yet — grab a song above ↑</p>';
+  }
+
+  function escHtml(str) {
+    return String(str)
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+      .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  /* ── Enter key shortcut ── */
+  document.getElementById('songName').addEventListener('keydown', e => {
+    if (e.key === 'Enter') downloadSong();
+  });
+
+  /* ── Load history on start ── */
+  refreshHistory();
+</script>
+</body>
+</html>
